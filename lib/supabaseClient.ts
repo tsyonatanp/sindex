@@ -23,7 +23,9 @@ function createMockClient() {
   return {
     from: () => ({
       select: () => ({
-        eq: () => Promise.resolve({ data: null, error: { message: 'No Supabase config' } }),
+        eq: () => ({
+          single: () => Promise.resolve({ data: null, error: { message: 'No Supabase config' } })
+        }),
         order: () => Promise.resolve({ data: null, error: { message: 'No Supabase config' } })
       }),
       insert: () => Promise.resolve({ error: { message: 'No Supabase config' } }),
