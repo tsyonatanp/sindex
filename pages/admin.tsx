@@ -5,26 +5,55 @@ import { supabase, PendingMessage } from '@/lib/supabaseClient'
 export default function Admin() {
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([])
   const [loading, setLoading] = useState(true)
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [processing, setProcessing] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     // Check if already authenticated
-    const savedPassword = localStorage.getItem('admin_password')
-    if (savedPassword === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
-      setIsAuthenticated(true)
-      fetchPendingMessages()
+    const adminSession = localStorage.getItem('admin_session')
+    if (adminSession) {
+      try {
+        const admin = JSON.parse(adminSession)
+        if (admin.id && admin.email) {
+          setIsAuthenticated(true)
+          fetchPendingMessages()
+        }
+      } catch (error) {
+        localStorage.removeItem('admin_session')
+      }
     }
   }, [])
 
-  const handleLogin = () => {
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
-      setIsAuthenticated(true)
-      localStorage.setItem('admin_password', password)
-      fetchPendingMessages()
-    } else {
-      alert('סיסמה שגויה')
+  const handleLogin = async () => {
+    if (!email || !password) {
+      alert('נא להזין אימייל וסיסמה')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setIsAuthenticated(true)
+        localStorage.setItem('admin_session', JSON.stringify(data.admin))
+        fetchPendingMessages()
+      } else {
+        alert(data.error || 'שגיאה בכניסה')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      alert('שגיאה בכניסה')
     }
   }
 
@@ -128,16 +157,37 @@ export default function Admin() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  סיסמה
+                  אימייל
                 </label>
                 <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="הכנס סיסמה"
+                  placeholder="הכנס אימייל"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  סיסמה
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="הכנס סיסמה"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
               <button
                 onClick={handleLogin}
@@ -173,10 +223,16 @@ export default function Admin() {
                 >
                   🏛️ חזרה לאינדקס
                 </a>
+                <a 
+                  href="/change-password" 
+                  className="text-yellow-600 hover:text-yellow-800 font-medium"
+                >
+                  🔑 שנה סיסמה
+                </a>
                 <button
                   onClick={() => {
                     setIsAuthenticated(false)
-                    localStorage.removeItem('admin_password')
+                    localStorage.removeItem('admin_session')
                   }}
                   className="text-red-600 hover:text-red-800 font-medium"
                 >

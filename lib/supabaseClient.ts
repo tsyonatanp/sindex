@@ -1,18 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
 
-// בדיקה אם אנחנו בסביבת פיתוח ללא Supabase
-const isDevelopment = process.env.NODE_ENV === 'development'
-const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// בדיקה אם יש לנו משתני סביבה תקינים
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 let supabase: any = null
 
-if (hasSupabaseConfig) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  supabase = createClient(supabaseUrl, supabaseAnonKey)
+if (supabaseUrl && supabaseAnonKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseAnonKey)
+  } catch (error) {
+    console.error('Error creating Supabase client:', error)
+    // יצירת mock client במקרה של שגיאה
+    supabase = createMockClient()
+  }
 } else {
-  // יצירת mock client לבדיקה מקומית
-  supabase = {
+  console.warn('No Supabase configuration found, using mock client')
+  supabase = createMockClient()
+}
+
+function createMockClient() {
+  return {
     from: () => ({
       select: () => ({
         order: () => Promise.resolve({ data: null, error: { message: 'No Supabase config' } })

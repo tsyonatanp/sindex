@@ -78,25 +78,25 @@ export default function Home() {
         console.log('Using demo data due to Supabase error:', error.message)
         // אם יש שגיאה, השתמש בנתוני הדוגמה
         setLawyers(demoLawyers)
-        const uniqueLocations = Array.from(new Set(demoLawyers.map(lawyer => lawyer.location)))
+        const uniqueLocations = Array.from(new Set(demoLawyers.map((lawyer: any) => lawyer.location))) as string[]
         setLocations(uniqueLocations)
       } else {
         setLawyers(data || demoLawyers)
-        const uniqueLocations = Array.from(new Set((data || demoLawyers).map(lawyer => lawyer.location)))
+        const uniqueLocations = Array.from(new Set((data || demoLawyers).map((lawyer: any) => lawyer.location))) as string[]
         setLocations(uniqueLocations)
       }
     } catch (error) {
       console.log('Using demo data due to error:', error)
       // במקרה של שגיאה, השתמש בנתוני הדוגמה
       setLawyers(demoLawyers)
-      const uniqueLocations = Array.from(new Set(demoLawyers.map(lawyer => lawyer.location)))
+      const uniqueLocations = Array.from(new Set(demoLawyers.map((lawyer: any) => lawyer.location))) as string[]
       setLocations(uniqueLocations)
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredLawyers = lawyers.filter(lawyer => {
+  const filteredLawyers = lawyers.filter((lawyer: any) => {
     const matchesSearch = lawyer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lawyer.specialties.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesLocation = !selectedLocation || lawyer.location === selectedLocation

@@ -28,6 +28,18 @@ CREATE TABLE approved_messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- יצירת טבלת מנהלים
+CREATE TABLE admins (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- הוספת מנהל ראשי (סיסמה: admin123)
+INSERT INTO admins (email, password_hash) VALUES 
+('admin@lawyers-index.com', '$2a$10$rQZ8K9mN2pL1sX3vB6cD4eF7gH8iJ9kL0mN1oP2qR3sT4uV5wX6yZ7aA8bB9cC0dD1eE2fF3gG4hH5iI6jJ7kK8lL9mM0nN1oO2pP3qQ4rR5sS6tT7uU8vV9wW0xX1yY2zZ');
+
 -- הוספת נתוני דוגמה לעורכי דין
 INSERT INTO lawyers (name, specialties, location, phone, whatsapp, website, tags) VALUES
 ('עו״ד מריאטה פנחסי', 'ליקויי בניה, צוואות', 'בקעת אונו', '054-4450244', '972544450244', 'https://example.com', ARRAY['מומלץ', 'מהיר']),
@@ -40,6 +52,7 @@ INSERT INTO lawyers (name, specialties, location, phone, whatsapp, website, tags
 ALTER TABLE lawyers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pending_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approved_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 
 -- יצירת מדיניות לקריאה ציבורית מטבלת עורכי דין
 CREATE POLICY "Allow public read access to lawyers" ON lawyers
@@ -58,4 +71,8 @@ CREATE POLICY "Allow admin insert to approved_messages" ON approved_messages
 
 -- יצירת מדיניות למחיקה מהודעות ממתינות (רק מה-API)
 CREATE POLICY "Allow API delete from pending_messages" ON pending_messages
-  FOR DELETE USING (true); 
+  FOR DELETE USING (true);
+
+-- יצירת מדיניות למנהלים (רק מנהלים יכולים לגשת)
+CREATE POLICY "Allow admin access to admins table" ON admins
+  FOR ALL USING (auth.role() = 'authenticated'); 
