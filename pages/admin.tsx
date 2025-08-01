@@ -167,18 +167,31 @@ export default function Admin() {
   const approveApplication = async (applicationId: string) => {
     setProcessing(applicationId)
     try {
+      console.log('Approving application:', applicationId)
       const application = lawyerApplications.find(a => a.id === applicationId)
-      if (!application) return
+      if (!application) {
+        console.error('Application not found:', applicationId)
+        return
+      }
+
+      console.log('Application data:', application)
 
       // עדכון סטטוס לאושר
+      console.log('Updating status to approved...')
       const { error: updateError } = await supabase
         .from('lawyer_applications')
         .update({ status: 'approved' })
         .eq('id', applicationId)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Update error:', updateError)
+        throw updateError
+      }
+
+      console.log('Status updated successfully')
 
       // הוספה לטבלת עורכי דין
+      console.log('Inserting into lawyers table...')
       const { error: insertError } = await supabase
         .from('lawyers')
         .insert([{
@@ -190,7 +203,12 @@ export default function Admin() {
           website: application.website
         }])
 
-      if (insertError) throw insertError
+      if (insertError) {
+        console.error('Insert error:', insertError)
+        throw insertError
+      }
+
+      console.log('Lawyer added successfully')
 
       // Refresh the list
       fetchLawyerApplications()
@@ -444,6 +462,9 @@ export default function Admin() {
                   <div className="mb-6">
                     <p className="text-gray-600">
                       נמצאו {lawyerApplications.filter(a => a.status === 'pending').length} בקשות הרשמה ממתינות
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      סה"כ בקשות: {lawyerApplications.length} | ממתינות: {lawyerApplications.filter(a => a.status === 'pending').length} | מאושרות: {lawyerApplications.filter(a => a.status === 'approved').length} | נדחו: {lawyerApplications.filter(a => a.status === 'rejected').length}
                     </p>
                   </div>
 
