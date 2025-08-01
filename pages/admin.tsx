@@ -200,8 +200,8 @@ export default function Admin() {
           specialties: application.specialties,
           location: application.location,
           phone: application.phone,
-          whatsapp: application.whatsapp,
-          website: application.website
+          whatsapp: application.whatsapp || '', // שולח מחרוזת ריקה במקום null
+          website: application.website || null
         }])
 
       if (insertError) {
