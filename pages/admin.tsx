@@ -93,13 +93,18 @@ export default function Admin() {
 
   const fetchLawyerApplications = async () => {
     try {
+      console.log('Fetching lawyer applications...')
       const { data, error } = await supabase
         .from('lawyer_applications')
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
 
+      console.log('Lawyer applications data:', data)
       setLawyerApplications(data || [])
     } catch (error) {
       console.error('Error fetching lawyer applications:', error)
