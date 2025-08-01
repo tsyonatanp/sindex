@@ -39,6 +39,11 @@ export default function ChangePassword() {
     }
 
     try {
+      // קבלת המייל של המשתמש המחובר
+      const adminSession = localStorage.getItem('admin_session')
+      const sessionData = adminSession ? JSON.parse(adminSession) : null
+      const userEmail = sessionData?.admin?.email || '1'
+
       const response = await fetch('/api/change-password', {
         method: 'POST',
         headers: {
@@ -47,6 +52,7 @@ export default function ChangePassword() {
         body: JSON.stringify({
           currentPassword,
           newPassword,
+          email: userEmail,
         }),
       })
 
