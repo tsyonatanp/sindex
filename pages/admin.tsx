@@ -26,6 +26,7 @@ export default function Admin() {
   const [processing, setProcessing] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [activeTab, setActiveTab] = useState<'messages' | 'applications'>('messages')
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState<'pending' | 'approved' | 'rejected'>('pending')
 
   useEffect(() => {
     // Check if already authenticated
@@ -384,10 +385,48 @@ export default function Admin() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                📝 בקשות הרשמה ({lawyerApplications.filter(a => a.status === 'pending').length})
+                📝 בקשות הרשמה ({lawyerApplications.length})
               </button>
             </nav>
           </div>
+
+          {/* Application Status Tabs */}
+          {activeTab === 'applications' && (
+            <div className="border-b border-gray-200 mb-4">
+              <nav className="-mb-px flex space-x-6">
+                <button
+                  onClick={() => setApplicationStatusFilter('pending')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    applicationStatusFilter === 'pending'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  ⏳ ממתינות ({lawyerApplications.filter(a => a.status === 'pending').length})
+                </button>
+                <button
+                  onClick={() => setApplicationStatusFilter('approved')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    applicationStatusFilter === 'approved'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  ✅ מאושרות ({lawyerApplications.filter(a => a.status === 'approved').length})
+                </button>
+                <button
+                  onClick={() => setApplicationStatusFilter('rejected')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    applicationStatusFilter === 'rejected'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  ❌ נדחו ({lawyerApplications.filter(a => a.status === 'rejected').length})
+                </button>
+              </nav>
+            </div>
+          )}
 
           {loading ? (
             <div className="text-center py-8">
@@ -461,23 +500,23 @@ export default function Admin() {
                 <>
                   <div className="mb-6">
                     <p className="text-gray-600">
-                      נמצאו {lawyerApplications.filter(a => a.status === 'pending').length} בקשות הרשמה ממתינות
+                      נמצאו {lawyerApplications.filter(a => a.status === applicationStatusFilter).length} בקשות הרשמה {applicationStatusFilter === 'pending' ? 'ממתינות' : applicationStatusFilter === 'approved' ? 'מאושרות' : 'נדחו'}
                     </p>
                     <p className="text-xs text-gray-500">
                       סה"כ בקשות: {lawyerApplications.length} | ממתינות: {lawyerApplications.filter(a => a.status === 'pending').length} | מאושרות: {lawyerApplications.filter(a => a.status === 'approved').length} | נדחו: {lawyerApplications.filter(a => a.status === 'rejected').length}
                     </p>
                   </div>
 
-                  {lawyerApplications.filter(a => a.status === 'pending').length === 0 ? (
+                  {lawyerApplications.filter(a => a.status === applicationStatusFilter).length === 0 ? (
                     <div className="text-center py-12">
                       <p className="text-gray-500 text-lg">
-                        אין בקשות הרשמה ממתינות
+                        אין בקשות הרשמה {applicationStatusFilter === 'pending' ? 'ממתינות' : applicationStatusFilter === 'approved' ? 'מאושרות' : 'נדחו'}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {lawyerApplications
-                        .filter(a => a.status === 'pending')
+                        .filter(a => a.status === applicationStatusFilter)
                         .map((application) => (
                         <div 
                           key={application.id} 
@@ -529,20 +568,30 @@ export default function Admin() {
                           </div>
 
                           <div className="flex gap-3">
-                            <button
-                              onClick={() => approveApplication(application.id)}
-                              disabled={processing === application.id}
-                              className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
-                            >
-                              {processing === application.id ? '⏳ מעבד...' : '✅ אישור'}
-                            </button>
-                            <button
-                              onClick={() => rejectApplication(application.id)}
-                              disabled={processing === application.id}
-                              className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
-                            >
-                              {processing === application.id ? '⏳ מעבד...' : '❌ דחייה'}
-                            </button>
+                            {application.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => approveApplication(application.id)}
+                                  disabled={processing === application.id}
+                                  className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                                >
+                                  {processing === application.id ? '⏳ מעבד...' : '✅ אישור'}
+                                </button>
+                                <button
+                                  onClick={() => rejectApplication(application.id)}
+                                  disabled={processing === application.id}
+                                  className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                                >
+                                  {processing === application.id ? '⏳ מעבד...' : '❌ דחייה'}
+                                </button>
+                              </>
+                            )}
+                            {application.status === 'approved' && (
+                              <span className="text-green-600 font-medium">✅ מאושר</span>
+                            )}
+                            {application.status === 'rejected' && (
+                              <span className="text-red-600 font-medium">❌ נדחה</span>
+                            )}
                           </div>
                         </div>
                       ))}
