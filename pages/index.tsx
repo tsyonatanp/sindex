@@ -122,6 +122,12 @@ export default function Home() {
               </h1>
               <nav className="flex gap-4">
                 <a 
+                  href="/register" 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  ➕ הוסף את עצמך לאינדקס
+                </a>
+                <a 
                   href="/messages" 
                   className="text-blue-600 hover:text-blue-800 font-medium"
                 >

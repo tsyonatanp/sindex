@@ -2,14 +2,30 @@ import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import { supabase, PendingMessage } from '@/lib/supabaseClient'
 
+interface LawyerApplication {
+  id: string
+  name: string
+  specialties: string
+  location: string
+  phone: string
+  whatsapp?: string
+  website?: string
+  email?: string
+  status: 'pending' | 'approved' | 'rejected'
+  notes?: string
+  created_at: string
+}
+
 export default function Admin() {
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([])
+  const [lawyerApplications, setLawyerApplications] = useState<LawyerApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [processing, setProcessing] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  const [activeTab, setActiveTab] = useState<'messages' | 'applications'>('messages')
 
   useEffect(() => {
     // Check if already authenticated
@@ -20,6 +36,7 @@ export default function Admin() {
         if (admin.id && admin.email) {
           setIsAuthenticated(true)
           fetchPendingMessages()
+          fetchLawyerApplications()
         }
       } catch (error) {
         localStorage.removeItem('admin_session')
@@ -74,6 +91,21 @@ export default function Admin() {
     }
   }
 
+  const fetchLawyerApplications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('lawyer_applications')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      setLawyerApplications(data || [])
+    } catch (error) {
+      console.error('Error fetching lawyer applications:', error)
+    }
+  }
+
   const approveMessage = async (messageId: string) => {
     setProcessing(messageId)
     try {
@@ -122,6 +154,69 @@ export default function Admin() {
     } catch (error) {
       console.error('Error deleting message:', error)
       alert('שגיאה במחיקת ההודעה')
+    } finally {
+      setProcessing(null)
+    }
+  }
+
+  const approveApplication = async (applicationId: string) => {
+    setProcessing(applicationId)
+    try {
+      const application = lawyerApplications.find(a => a.id === applicationId)
+      if (!application) return
+
+      // עדכון סטטוס לאושר
+      const { error: updateError } = await supabase
+        .from('lawyer_applications')
+        .update({ status: 'approved' })
+        .eq('id', applicationId)
+
+      if (updateError) throw updateError
+
+      // הוספה לטבלת עורכי דין
+      const { error: insertError } = await supabase
+        .from('lawyers')
+        .insert([{
+          name: application.name,
+          specialties: application.specialties,
+          location: application.location,
+          phone: application.phone,
+          whatsapp: application.whatsapp,
+          website: application.website
+        }])
+
+      if (insertError) throw insertError
+
+      // Refresh the list
+      fetchLawyerApplications()
+    } catch (error) {
+      console.error('Error approving application:', error)
+      alert('שגיאה באישור הבקשה')
+    } finally {
+      setProcessing(null)
+    }
+  }
+
+  const rejectApplication = async (applicationId: string) => {
+    const notes = prompt('סיבת הדחייה (אופציונלי):')
+    
+    setProcessing(applicationId)
+    try {
+      const { error } = await supabase
+        .from('lawyer_applications')
+        .update({ 
+          status: 'rejected',
+          notes: notes || null
+        })
+        .eq('id', applicationId)
+
+      if (error) throw error
+
+      // Refresh the list
+      fetchLawyerApplications()
+    } catch (error) {
+      console.error('Error rejecting application:', error)
+      alert('שגיאה בדחיית הבקשה')
     } finally {
       setProcessing(null)
     }
@@ -214,7 +309,7 @@ export default function Admin() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex flex-col sm:flex-row justify-between items-center">
               <h1 className="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
-                🔐 ניהול הודעות
+                🔐 ניהול מערכת
               </h1>
               <nav className="flex gap-4">
                 <a 
@@ -245,68 +340,189 @@ export default function Admin() {
 
         {/* Content */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Tabs */}
+          <div className="border-b border-gray-200 mb-6">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('messages')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'messages'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📞 הודעות וואטסאפ ({pendingMessages.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('applications')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'applications'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📝 בקשות הרשמה ({lawyerApplications.filter(a => a.status === 'pending').length})
+              </button>
+            </nav>
+          </div>
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">טוען הודעות ממתינות...</p>
+              <p className="mt-4 text-gray-600">טוען...</p>
             </div>
           ) : (
             <>
-              <div className="mb-6">
-                <p className="text-gray-600">
-                  נמצאו {pendingMessages.length} הודעות ממתינות לאישור
-                </p>
-              </div>
+              {activeTab === 'messages' && (
+                <>
+                  <div className="mb-6">
+                    <p className="text-gray-600">
+                      נמצאו {pendingMessages.length} הודעות ממתינות לאישור
+                    </p>
+                  </div>
 
-              {pendingMessages.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500 text-lg">
-                    אין הודעות ממתינות לאישור
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {pendingMessages.map((message) => (
-                    <div 
-                      key={message.id} 
-                      className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-500">
-                            📱 {maskPhone(message.phone)}
-                          </span>
-                        </div>
-                        <span className="text-sm text-gray-500">
-                          📅 {formatDate(message.created_at)}
-                        </span>
-                      </div>
-                      
-                      <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                        <p className="text-gray-800 whitespace-pre-wrap">
-                          {message.message}
-                        </p>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => approveMessage(message.id)}
-                          disabled={processing === message.id}
-                          className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
-                        >
-                          {processing === message.id ? '⏳ מעבד...' : '✅ אישור'}
-                        </button>
-                        <button
-                          onClick={() => deleteMessage(message.id)}
-                          disabled={processing === message.id}
-                          className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
-                        >
-                          {processing === message.id ? '⏳ מעבד...' : '❌ מחיקה'}
-                        </button>
-                      </div>
+                  {pendingMessages.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500 text-lg">
+                        אין הודעות ממתינות לאישור
+                      </p>
                     </div>
-                  ))}
-                </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {pendingMessages.map((message) => (
+                        <div 
+                          key={message.id} 
+                          className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">
+                                📱 {maskPhone(message.phone)}
+                              </span>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                              📅 {formatDate(message.created_at)}
+                            </span>
+                          </div>
+                          
+                          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                            <p className="text-gray-800 whitespace-pre-wrap">
+                              {message.message}
+                            </p>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => approveMessage(message.id)}
+                              disabled={processing === message.id}
+                              className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                            >
+                              {processing === message.id ? '⏳ מעבד...' : '✅ אישור'}
+                            </button>
+                            <button
+                              onClick={() => deleteMessage(message.id)}
+                              disabled={processing === message.id}
+                              className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                            >
+                              {processing === message.id ? '⏳ מעבד...' : '❌ מחיקה'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {activeTab === 'applications' && (
+                <>
+                  <div className="mb-6">
+                    <p className="text-gray-600">
+                      נמצאו {lawyerApplications.filter(a => a.status === 'pending').length} בקשות הרשמה ממתינות
+                    </p>
+                  </div>
+
+                  {lawyerApplications.filter(a => a.status === 'pending').length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500 text-lg">
+                        אין בקשות הרשמה ממתינות
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {lawyerApplications
+                        .filter(a => a.status === 'pending')
+                        .map((application) => (
+                        <div 
+                          key={application.id} 
+                          className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900">
+                                {application.name}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                📍 {application.location}
+                              </p>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                              📅 {formatDate(application.created_at)}
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">התמחויות:</p>
+                              <p className="text-sm text-gray-600">{application.specialties}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">טלפון:</p>
+                              <p className="text-sm text-gray-600">{application.phone}</p>
+                            </div>
+                            {application.whatsapp && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">וואטסאפ:</p>
+                                <p className="text-sm text-gray-600">{application.whatsapp}</p>
+                              </div>
+                            )}
+                            {application.website && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">אתר:</p>
+                                <a href={application.website} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-800">
+                                  {application.website}
+                                </a>
+                              </div>
+                            )}
+                            {application.email && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">אימייל:</p>
+                                <p className="text-sm text-gray-600">{application.email}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => approveApplication(application.id)}
+                              disabled={processing === application.id}
+                              className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                            >
+                              {processing === application.id ? '⏳ מעבד...' : '✅ אישור'}
+                            </button>
+                            <button
+                              onClick={() => rejectApplication(application.id)}
+                              disabled={processing === application.id}
+                              className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                            >
+                              {processing === application.id ? '⏳ מעבד...' : '❌ דחייה'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
